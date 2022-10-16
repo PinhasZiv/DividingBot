@@ -3,7 +3,7 @@ from mysql.connector import Error
 import Constants
 
 
-def getExpenseSum(message_text, context):
+def get_expense_sum(message_text, context):
     ret = ''
     # validate that the user entered only integer or float.
     try:
@@ -17,12 +17,12 @@ def getExpenseSum(message_text, context):
         return ret
 
 
-def getExpenseReason(message_text, context):
+def get_expense_reason(message_text, context):
     context.user_data['expense']['reason'] = message_text
     # updating state after adding data to DB (in main)
 
 
-def addExpense(user_id, chat_id, message_id, amount, reason, timestamp):
+def add_expense(user_id, chat_id, message_id, amount, reason, timestamp):
     ret = ""
     try:
         connection = mysql.connector.connect(host=Constants.MYSQL_DB['host'],
@@ -32,7 +32,7 @@ def addExpense(user_id, chat_id, message_id, amount, reason, timestamp):
         if connection.is_connected():
             mySql_insert_query = """INSERT INTO distributions (UserID, ChatID, Amount, Reason, MessageID, Timestamp) 
                                       VALUES 
-                                      (%s ,%s, %s, %s, %s, %s)"""
+                                      (%s, %s, %s, %s, %s, %s)"""
             data_to_insert = (user_id, chat_id, amount, reason, message_id, timestamp)
             db_Info = connection.get_server_info()
             print("Connected to MySQL Server version ", db_Info)
@@ -53,7 +53,8 @@ def addExpense(user_id, chat_id, message_id, amount, reason, timestamp):
             print("MySQL connection is closed")
         return ret
 
-def get_calculation():
+
+def get_expenses_list(context):
     ret = ""
     try:
         connection = mysql.connector.connect(host=Constants.MYSQL_DB['host'],
@@ -61,8 +62,22 @@ def get_calculation():
                                              user=Constants.MYSQL_DB['user'],
                                              password=Constants.MYSQL_DB['password'])
         if connection.is_connected():
-            # need to add code here
-            pass
+            users_list = context.chat_data['users_list']
+            users_sum = {}
+            for user in users_list:
+                print('user:', user)
+                mySql_select_query = """SELECT UserID, Amount FROM distributions WHERE UserID = 190866836"""
+                mySql_select_sum_query = """SELECT SUM(Amount) AS sum FROM distributions WHERE UserID = {user: d}""".format(user=user)
+                print(mySql_select_sum_query.format(user=user))
+                db_Info = connection.get_server_info()
+                print("Connected to MySQL Server version ", db_Info)
+                cursor = connection.cursor()
+                cursor.execute(mySql_select_sum_query)
+                result = cursor.fetchone()
+                print("Result: ", result)
+                users_sum[user] = result[0]
+            ret = "calculated successfully!"
+            print(users_sum)
     except Error as e:
         print("Error while connecting to MySQL", e)
         ret = 'an error occurred!'
@@ -71,3 +86,23 @@ def get_calculation():
             cursor.close()
             connection.close()
             print("MySQL connection is closed")
+        if 'error' in ret:
+            return ret
+        return users_sum
+
+
+# return dict of {userID -> balance}. positive balance = receiver, negative balance = debtor)
+def get_members_balance(expenses_dict):
+    sum_expenses = sum(expenses_dict.values())
+    breakeven_point = sum_expenses / len(expenses_dict)
+    balances_dict = {}
+
+    for user in expenses_dict:
+        balances_dict[user] = expenses_dict[user] - breakeven_point
+
+    print('sum:', sum_expenses)
+    print('breakpoint:', breakeven_point)
+    print(balances_dict)
+
+    return balances_dict
+
