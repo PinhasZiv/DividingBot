@@ -1,4 +1,4 @@
-import telegram
+import csv
 
 import Constants
 import Responses
@@ -44,7 +44,11 @@ def messageHandler(update: Update, context: CallbackContext):
 
 	message_text = str(update.message.text).lower()
 	if 'calculate' in message_text:
-		print(get_calculation(context))
+		print('found')
+		debts = get_calculation(context)
+		print(debts)
+		output_file = create_csv(debts)
+		send_file(update, context, output_file)
 	else:
 		message_id = update.message.message_id
 		message_date = int(round(update.message.date.timestamp()))
@@ -94,6 +98,22 @@ def messageHandler(update: Update, context: CallbackContext):
 		print('user data:', context.user_data)
 		print('chat data:', context.chat_data)
 		update.message.reply_text(ret)
+
+
+def create_csv(debts):
+	keys = debts[0].keys()
+
+	with open('debts.csv', 'w', newline='') as output_file:
+		dict_writer = csv.DictWriter(output_file, keys)
+		dict_writer.writeheader()
+		dict_writer.writerows(debts)
+	return output_file
+
+
+def send_file(update, context, file):
+	chat_id = update.message.chat_id
+	document = open(file.name, 'rb')
+	context.bot.send_document(chat_id, document)
 
 
 def new_user_added(update: Update, context: CallbackContext):
